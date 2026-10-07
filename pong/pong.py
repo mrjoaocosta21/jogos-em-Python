@@ -36,7 +36,7 @@ while rodando:
 
         jogador.clamp_ip(tela.get_rect())
 
-        ia.y += 5 if.centery < bola.centery else -5
+        ia.y += 5 if centery < bola.centery else -5
         ia.clamp_ip(tela.get_rect())
 
         bola.x += vx
