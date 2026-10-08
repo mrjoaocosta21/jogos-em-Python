@@ -2,87 +2,170 @@ import pygame
 import random
 
 pygame.init()
-tela = pygame.display.set_mode((600, 400))
+
+LARGURA = 600
+ALTURA = 400
+TAMANHO_CASA = 40
+COLUNAS = LARGURA // TAMANHO_CASA
+LINHAS = ALTURA // TAMANHO_CASA
+QUANTIDADE_MINAS = 22
+
+tela = pygame.display.set_mode((LARGURA, ALTURA))
+pygame.display.set_caption("Campo Minado")
 relogio = pygame.time.Clock()
 fonte = pygame.font.Font(None, 40)
-T = 40
-casas = [(x, y) for x in range(15) for y in range(10)]
-minas = set(random.sample(casas, 22))
+fonte_fim = pygame.font.Font(None, 64)
+
+casas = [(x, y) for x in range(COLUNAS) for y in range(LINHAS)]
+minas = set(random.sample(casas, QUANTIDADE_MINAS))
 abertas = set()
 bandeiras = set()
-perdeu = False
-cores = [None, "blue", "green4", "red", "navy",
-         "maroon", "teal", "black", "gray"]
 
-def vizinhas(c):
+perdeu = False
+ganhou = False
+
+cores = [None, "blue", "green4", "red", "navy", "maroon", "teal", "black", "gray"]
+
+
+def vizinhas(casa):
+    """Retorna as casas vizinhas válidas de uma posição."""
     lista = []
+    x, y = casa
+
     for dx in (-1, 0, 1):
-        for dy in (-1, 0, 1):
-            v = (c[0] + dx, c[1] + dy)
-            if v in casas:
-                lista.append(v)
+        for dy in (-1, 0, 1):          
+            if dx == 0 and dy == 0:
+                continue
+
+            vizinha = (x + dx, y + dy)
+
+            if vizinha in casas:
+                lista.append(vizinha)
+
     return lista
 
-def numero(c):
-    return len(minas.intersection(vizinhas(c)))
+def numero(casa):
+    """Conta quantas minas existem ao redor da casa."""
+    return len(minas.intersection(vizinhas(casa)))
 
-def abrir(c):
-    fila = [c]    
+
+def abrir(casa):
+    """Abre uma casa e expande automaticamente regiões sem minas próximas."""
+    fila = [casa]
+
     while fila:
-        c = fila.pop()
-        if c in abertas or c in bandeiras:
+        atual = fila.pop()
+
+        if atual in abertas or atual in bandeiras:
             continue
-        if c in abertas:
-            continue
-        abertas.add(c)
-        if numero(c) == 0 and c not in minas:
-            fila += vizinhas(c)        
+
+        abertas.add(atual)
+
+        if atual not in minas and numero(atual) == 0:
+            fila.extend(vizinhas(atual))
+
+
+def alternar_bandeira(casa):
+    """Coloca ou remove uma bandeira de uma casa fechada."""
+    if casa in abertas:
+        return
+
+    if casa in bandeiras:
+        bandeiras.remove(casa)
+    else:
+        bandeiras.add(casa)
+
 
 rodando = True
-while rodando:
+
+while rodando:    
     for evento in pygame.event.get():
         if evento.type == pygame.QUIT:
             rodando = False
-        clicou = evento.type == pygame.MOUSEBUTTONDOWN
-        if clicou and not perdeu:        
-            x, y = evento.pos
-            c = (x// T, y // T)
-            if evento.button == 3 and c not in abertas:
-                bandeiras ^= {c}
-            if evento.button == 1:
-                abrir(c)
-                perdeu = c in minas and c in abertas
-            abrir((x // T, y // T))
 
+        if evento.type == pygame.MOUSEBUTTONDOWN and not perdeu and not ganhou:
+            x, y = evento.pos
+            casa = (x // TAMANHO_CASA, y // TAMANHO_CASA)
+            
+            if evento.button == 3:
+                alternar_bandeira(casa)
+            
+            elif evento.button == 1:
+                abrir(casa)
+
+                if casa in minas and casa in abertas:
+                    perdeu = True
+
+                elif len(abertas) == len(casas) - len(minas):
+                    ganhou = True
+    
     tela.fill("gray20")
     mouse = pygame.mouse.get_pos()
-    for c in casas:
-        r = pygame.Rect(c[0] * T, c[1]* T, T, T)
-        r = r.inflate(-2, 2)
-        if c in minas and c in abertas:
-            pygame.draw.rect(tela, "orange", r)
-            pygame.draw.circle(tela, "black", r.center, 9)
-        elif c in abertas:
-            pygame.draw.rect(tela, "gainsboro", r)
-            n = numero(c)
-            if n:
-                img = fonte.render(str(n), True, cores[n])
-                pos = img.get_rect(center=r.center)
-                tela.blit(img, pos)
+    
+    for casa in casas:
+        x, y = casa
+        retangulo = pygame.Rect(
+            x * TAMANHO_CASA,
+            y * TAMANHO_CASA,
+            TAMANHO_CASA,
+            TAMANHO_CASA,
+        )
+        retangulo = retangulo.inflate(-2, -2)
+        
+        if casa in minas and perdeu:
+            pygame.draw.rect(tela, "orange", retangulo, border_radius=5)
+            pygame.draw.circle(tela, "black", retangulo.center, 9)
+        
+        elif casa in abertas:
+            pygame.draw.rect(tela, "gainsboro", retangulo, border_radius=5)
+
+            quantidade = numero(casa)
+
+            if quantidade:
+                imagem = fonte.render(str(quantidade), True, cores[quantidade])
+                posicao = imagem.get_rect(center=retangulo.center)
+                tela.blit(imagem, posicao)
+        
         else:
-            azul = "steelblue"
-            if r.collidepoint(mouse):
-                azul = "lightskyblue"              
-            pygame.draw.rect(tela, azul, r, 0, 5)
-            if c in bandeiras:
-                x, y = r.center
-                cabo = (x - 8, y - 13, 3, 26)
-                pygame.draw.rect(tela,"black", cabo)
-                p = [(x - 5, y - 13), (x + 11, y - 6),
-                     (x - 5, y + 1)]
-                pygame.draw.polygon(tela, "red", p)
+            cor_casa = "steelblue"
+
+            if retangulo.collidepoint(mouse) and not perdeu and not ganhou:
+                cor_casa = "lightskyblue"
+            
+            if ganhou and casa in minas:
+                cor_casa = "mediumseagreen"
+
+            pygame.draw.rect(tela, cor_casa, retangulo, border_radius=5)
+            
+            if casa in bandeiras:
+                centro_x, centro_y = retangulo.center
+                cabo = (centro_x - 8, centro_y - 13, 3, 26)
+                pygame.draw.rect(tela, "black", cabo)
+
+                pontos = [
+                    (centro_x - 5, centro_y - 13),
+                    (centro_x + 11, centro_y - 6),
+                    (centro_x - 5, centro_y + 1),
+                ]
+                pygame.draw.polygon(tela, "red", pontos)
+    
+    if perdeu:
+        texto = fonte_fim.render("DERROTA!", True, "red")
+        sombra = fonte_fim.render("DERROTA!", True, "black")
+        posicao = texto.get_rect(center=(LARGURA // 2, ALTURA // 2))
+
+        tela.blit(sombra, posicao.move(2, 2))
+        tela.blit(texto, posicao)
+
+    elif ganhou:
+        texto = fonte_fim.render("VITÓRIA!", True, "lawngreen")
+        sombra = fonte_fim.render("VITÓRIA!", True, "black")
+        posicao = texto.get_rect(center=(LARGURA // 2, ALTURA // 2))
+
+        tela.blit(sombra, posicao.move(2, 2))
+        tela.blit(texto, posicao)
+
     pygame.display.flip()
-    relogio.tick(60)        
+    relogio.tick(60)
 
-pygame.quit()    
-
+pygame.quit()

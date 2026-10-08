@@ -6,7 +6,9 @@ Sky()
 
 for x in range(16):
     for z in range(16):
-        Entity(model='cube', color=color.lime, texture="white_cube", position=(x, 0, z), collider='box')
+        Entity(model='cube', color=color.lime,
+               texture='white_cube',
+               position=(x, 0, z), collider='box')
 
 camera.position = (7.5, 30, -14)
 camera.rotation_x = 55
@@ -22,7 +24,9 @@ def input(key):
     if not alvo:
         return
     if key == 'right mouse down':
-        Entity(model='cube', color=cor, texture='white_cube', position=alvo.position + mouse.normal, collider='box')
-    if key == 'left mouse down' :
+        Entity(model='cube', color=cor,
+               texture='white_cube',
+               position=alvo.position + mouse.normal, collider='box')
+    if key == 'left mouse down':
         destroy(alvo)    
 app.run()
